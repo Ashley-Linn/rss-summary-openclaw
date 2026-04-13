@@ -1,0 +1,216 @@
+```
+# rss-summary-openclaw · OpenClaw 智能新闻日报技能
+
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![OpenClaw](https://img.shields.io/badge/OpenClaw-2026.4.9-blue)](https://github.com/openclaw-ai/openclaw)
+
+基于 OpenClaw 框架的自定义技能，自动抓取 RSS 源（新闻网站 + 微信公众号），调用 DeepSeek API 生成综合日报，推送到飞书单聊，并归档到 Obsidian。
+
+---
+
+## ✨ 核心特性
+
+- **两种工作模式**：
+  - **模式A（统一聚合）**：通过 FreshRSS 聚合所有源，支持白名单筛选 / 全量模式。
+  - **模式B（直接抓取）**：绕过 FreshRSS，直接从预设的 URL 列表抓取 RSS。
+- **AI 日报**：调用 DeepSeek 将多篇文章整合为一份日报，包含主题分类、一句话摘要、原文链接、今日重点总结。
+- **飞书推送**：通过飞书企业自建应用（长连接）发送到单聊，消息超长自动分批。
+- **Obsidian 归档**：每日日报自动追加到 `Daily News/YYYY-MM-DD.md`，便于长期检索。
+- **高可靠性**：网络请求超时重试、DeepSeek 失败时降级为原始列表、脚本与 OpenClaw 环境完全兼容。
+
+---
+
+## 🧱 整体架构
+
+```mermaid
+flowchart TD
+    subgraph A[信息源]
+        A1[通用网站]
+        A2[微信公众号]
+    end
+    subgraph B[RSS生成服务]
+        B1[RSSHub]
+        B2[WeWe RSS]
+    end
+    subgraph C[可选聚合]
+        C1[FreshRSS<br>筛选/全量模式]
+    end
+    subgraph D[OpenClaw]
+        D1[触发方式<br>定时/手动]
+        D2[自定义技能<br>rss-summary]
+        D3[Fallback<br>agent-search]
+    end
+    subgraph E[技能逻辑]
+        E1[模式A：统一聚合]
+        E2[模式B：直接抓取]
+        E3[DeepSeek API]
+        E4[飞书推送]
+        E5[Obsidian归档]
+    end
+    subgraph F[终端]
+        F1[飞书单聊]
+    end
+    subgraph G[知识库]
+        G1[Obsidian]
+    end
+    A1 --> B1 --> C1 --> E1
+    A2 --> B2 --> C1 --> E1
+    D1 --> D2 -->|成功| E1
+    D2 -->|成功| E2
+    D2 -->|失败| D3 -->|联网搜索| F1
+    E1 --> E3 --> E4 --> F1
+    E2 --> E3 --> E4 --> F1
+    E3 --> E5 --> G1
+```
+
+> 详细说明：模式 A 使用 FreshRSS 聚合源（可开启白名单筛选），模式 B 直接抓取独立 URL 列表。成功时调用 DeepSeek 生成日报并推送；失败时自动 fallback 到 `agent-search` 联网搜索。
+
+## 📂 项目文件结构
+
+```
+rss-summary/
+├── SKILL.md                 # OpenClaw 技能定义文件
+├── fetch_and_push.py        # 主脚本
+├── run.sh                   # 包装脚本（确保环境一致）
+├── .env.example             # 环境变量模板
+├── requirements.txt         # Python 依赖
+├── README.md                # 项目说明
+└── LICENSE                  # MIT 许可证
+```
+
+------
+
+## 🚀 快速开始
+
+### 前置条件
+
+- OpenClaw 已安装并运行（`openclaw gateway status` 应显示 `running`）
+- Docker 环境（用于 RSSHub / WeWe RSS / FreshRSS，可选）
+- DeepSeek API Key（[注册](https://platform.deepseek.com/)）
+- 飞书企业自建应用（已配置**长连接**，开通 `im:message` 权限）
+- Obsidian（可选，用于归档）
+
+------
+
+### 安装技能
+
+```
+# 克隆到 OpenClaw 技能目录
+git clone https://github.com/Ashley-Linn/rss-summary-openclaw.git ~/.openclaw/skills/rss-summary
+
+cd ~/.openclaw/skills/rss-summary
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+cp .env.example .env
+nano .env
+```
+
+------
+
+### 配置 `.env` 文件（至少填写以下关键项）
+
+```
+# 模式选择（二选一）
+USE_FRESHRSS=true                     # true=模式A, false=模式B
+
+# 模式A：FreshRSS 聚合源（需要先部署 FreshRSS）
+FRESHRSS_URL=http://localhost:8080/feeds/你的用户名/你的token?hours=24
+FILTER_MODE=true                      # 是否启用白名单筛选
+FOCUS_FEATURES_JSON=["chinanews.com.cn", "qbitai.com", "MP_WXS_xxx"]
+
+# 模式B：直接抓取 URL 列表（JSON数组）
+DIRECT_FEED_URLS_JSON=["https://www.qbitai.com/feed", "https://36kr.com/feed"]
+
+# 飞书配置
+FEISHU_APP_ID=cli_xxx
+FEISHU_APP_SECRET=xxx
+FEISHU_USER_OPEN_ID=ou_xxx
+
+# DeepSeek API
+DEEPSEEK_API_KEY=sk-xxx
+
+# Obsidian 路径（WSL格式示例）
+OBSIDIAN_VAULT_PATH=/mnt/d/MyNotes/Obsidian
+
+# 其他
+MAX_ARTICLES=10
+```
+
+------
+
+### 手动测试
+
+```
+cd ~/.openclaw/skills/rss-summary
+source .venv/bin/activate
+python fetch_and_push.py
+```
+
+------
+
+### 注册为 OpenClaw 技能
+
+```
+openclaw skills list | grep rss-summary   # 应看到已加载
+```
+
+------
+
+### 设置定时任务（如每天 7:30）
+
+```
+openclaw cron add \
+  --name "定时RSS汇总" \
+  --cron "30 7 * * *" \
+  --tz "Asia/Shanghai" \
+  --session isolated \
+  --message "运行技能 rss-summary" \
+  --no-deliver
+```
+
+**完整参数说明：**
+
+- `--name "定时RSS汇总"`：任务名（必填）
+- `--cron "30 7 * * *"`：每天 07:30 执行（必填）
+- `--tz "Asia/Shanghai"`：时区（强烈建议）
+- `--session isolated`：独立会话（推荐）
+- `--message "运行技能 rss-summary"`：指令内容
+- `--no-deliver`：静默执行，不额外推送
+
+------
+
+## ❓ 常见问题
+
+### 1. 手动执行脚本成功，但 OpenClaw 调用时卡住？
+
+**原因**：工作目录、环境变量、网络超时或输出缓冲不一致。
+
+**解决**：脚本已内置 `os.chdir`、绝对路径加载 `.env`、所有请求带超时、`print(..., flush=True)`，并提供了包装脚本 `run.sh`。确保在 `SKILL.md` 中调用 `run.sh` 而不是直接 `python`。
+
+### 2. 飞书机器人无响应，日志显示 `ECONNREFUSED 127.0.0.1:7897`？
+
+**原因**：WSL 中残留 HTTP_PROXY 代理环境变量，但代理服务未运行。
+
+**解决**：执行 `env | grep -i proxy` 检查，编辑 `~/.bashrc` 删除相关行，重启 WSL。
+
+### 3. FreshRSS 筛选模式失效，所有文章都被跳过？
+
+**原因**：RSS 条目中 `<source>` 字段为空。
+
+**解决**：改用链接域名匹配（脚本已实现）。
+
+------
+
+## 🤝 贡献与许可
+
+本项目采用 **MIT 许可证**，欢迎提交 Issue 和 PR。
+
+------
+
+## 🔗 相关链接
+
+- [OpenClaw 官方文档](https://openclaw.ai/)
+- [RSSHub](https://docs.rsshub.app/)
+- [WeWe RSS](https://github.com/cooderl/wewe-rss)
+- [DeepSeek](https://platform.deepseek.com/)

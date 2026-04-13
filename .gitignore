@@ -1,0 +1,27 @@
+# 本地环境配置（含密钥，绝对不能上传）
+.env
+
+# 本地测试脚本（不上传）
+test_daily_report.py
+test_env.py
+test_integration.py
+test_modes.py
+test_obsidian.py
+
+# Python 环境与缓存
+.venv/
+__pycache__/
+.pytest_cache/
+*.pyc
+*.pyo
+*.pyd
+.env.local
+.env.*.local
+
+# 日志文件
+*.log
+gateway.log
+
+# 系统文件
+.DS_Store
+Thumbs.db

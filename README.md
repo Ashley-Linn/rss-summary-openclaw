@@ -21,7 +21,7 @@
 
 ## 🧱 整体架构
 
-![项目整体架构图](./architecture.png)
+![项目整体架构图](./assets/architecture.png)
 > 模式A使用 FreshRSS 聚合源（可开启白名单筛选），模式B直接抓取独立 URL 列表。成功时调用 DeepSeek 生成日报并推送；失败时自动 fallback 到 `agent-search` 联网搜索。
 
 ---
@@ -116,12 +116,12 @@ openclaw skills list | grep rss-summary
 
 ---
 
-### 设置定时任务（每天 07:30）
+### 设置定时任务（每天 09:30）
 
 ```bash
 openclaw cron add \
   --name "定时RSS汇总" \
-  --cron "30 7 * * *" \
+  --cron "30 9 * * *" \
   --tz "Asia/Shanghai" \
   --session isolated \
   --message "运行技能 rss-summary" \
@@ -137,6 +137,27 @@ openclaw cron add \
 - `--no-deliver`：静默执行
 
 ---
+## 📸 演示效果
+
+### 定时任务列表
+通过 `openclaw cron list` 可查看已添加的任务（示例截图）：
+<br/>
+
+![定时任务列表](./assets/cron_list.png)
+
+### 飞书日报推送
+每日定时任务执行后，会在飞书单聊收到以下格式的智能日报：
+<br/>
+
+![飞书日报示例](./assets/feishu_demo.png)
+
+### Obsidian 归档
+所有日报自动追加到 Obsidian 笔记中，便于历史回顾：
+<br/>
+
+![Obsidian 日报示例](./assets/obsidian_demo.png)
+
+----
 
 ## ❓ 常见问题
 
